@@ -1,2 +1,2 @@
-# NYC-Mobility_extension
+# NYC-Mobility-extension
 Production documentation for NYC-Mobility
