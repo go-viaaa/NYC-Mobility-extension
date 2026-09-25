@@ -1,5 +1,14 @@
 ## Data Quality & Runtime Monitoring
 
+### Monitoring Pillars
+
+| **Pillar** | **What is Monitored** | **Implementation / Mechanism** |
+|---|---|---|
+| **Execution** | Task status, duration, and pipeline progress | `dq_run_log` and `vw_latest_dq_run` tables. |
+| **Failures** | Task exceptions, rule breaches, and blocking gates | `dq_results` synthetic gate records with `raise_error` on `STOP`. |
+| **Freshness** | Batch arrival times and maximum timestamp boundaries | Preload month auto-detection and Gold `v_as_of` labels. |
+| **Data Quality** | 291 rules across 5 layers + Great Expectations | 102 blocking SQL checks + Great Expectations suite. |
+
 Runtime data quality is governed by **291 checks across five layers**, including **102 blocking checks** that can halt pipeline execution when critical quality thresholds are breached.
 
 ### Five-Layer Data Quality Matrix
