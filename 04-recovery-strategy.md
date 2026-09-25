@@ -1,120 +1,20 @@
-## Disaster Recovery & Operational Standards
+5. Disaster Recovery & Operational Runbook5.1 Failure Isolation & Gating LogicSelective Holdback: A failure on a non-required asset isolates only the affected table, allowing unaffected pipelines to proceed downstream.   Hard Stop Gate: If a check fails on a required table (green_taxi, green_taxi_clean, fact_taxi_trip, dim_taxi_zone), or total layer failures reach 5 (v_max_total_failures), the job writes a STOP gate record and invokes raise_error() to prevent corrupted data propagation.   5.2 Deterministic Rules & Recovery (TRUNCATE Rule)UTC Pinning: Every notebook explicitly sets SET TIME ZONE 'UTC' to ensure deterministic key calculation.   The TRUNCATE Safety Rule: Before re-running a MERGE task where join key derivation logic or session parameters have changed, execute TRUNCATE TABLE <target_table>. Re-running a MERGE with updated key logic on an un-truncated table causes duplicate row insertion (e.g., expanding row count from 44,208 to 88,416).   PlaintextRecovery Sequence for Key or Schema Modifications:
 
-This section defines the operational standards for timezone management, deterministic key generation, safe recovery, `MERGE` operations, and automated data-quality validation.
-
-### Task Failure Behavior & Isolation
-
-- **Selective Table Holdback** — A `FAIL` on a non-required table holds back only the affected table, allowing unaffected pipelines to proceed.
-- **Hard Stop Gating** — If a check on `v_required_tables` fails, or if total failures exceed `v_max_total_failures` (`5`), the layer writes a `STOP` gate record and triggers `raise_error()`. This halts downstream execution before contaminated data can reach the Gold layer.
-
-### Idempotency & Safe Rerun Strategy
-
-- **Session Timezone Pinning** — All jobs execute `SET TIME ZONE 'UTC'` to ensure deterministic key generation, including `unix_timestamp` and date-based keys, regardless of cluster location.
-
-- **Safe Re-execution (`TRUNCATE` Rule)**:
-  - Before rerunning a `MERGE` task where key-generation logic or session parameters have changed, execute a `TRUNCATE` on the target table.
-  - **Reason:** Rerunning `WHEN NOT MATCHED THEN INSERT` with modified key expressions without truncating can create duplicate fact records, such as increasing row counts from `44,208` to `88,416`.
-
-- **Atomic Batch Scoping** — Ingestion and cleaning tasks are scoped using `batch_month` and `source_file`, allowing individual monthly batches to be rerun independently and idempotently.
-
-### Timezone Management
-
-All notebooks must explicitly use UTC to ensure consistent timestamp handling across environments.
-
-```sql
-SET TIME ZONE 'UTC';
-```
-
-### Deterministic Key Generation
-
-Primary and surrogate keys must be generated using **timezone-independent logic**.
-
-Avoid deriving keys directly from session-dependent expressions such as:
-
-```sql
-CAST(ts AS STRING)
-DATE(ts)
-```
-
-Different session timezones can produce different values from the same timestamp, which may result in **inconsistent keys or duplicate records**.
-
-> **Standard:** Key-generation logic must produce the same key regardless of the execution environment or session timezone.
-
-###  Recovery & MERGE Safety
-
-Changes to schema definitions or key-generation logic require a controlled recovery process.
-
-#### Schema or Key Changes
-
-When key-generation logic or the target schema changes, follow this sequence:
-
-```text
-TRUNCATE Target Table
-        ↓
-Apply Updated Logic
-        ↓
-Run MERGE
-        ↓
-Validate Results
-```
-
-This ensures that records created using the previous logic do not remain in the target table.
-
-#### Preventing Duplicate Records
-
-Running a `MERGE` after changing key logic without resetting the target table can result in duplicate records:
-
-```text
-Existing Records
-       +
-Updated Key Logic
-       ↓
-     MERGE
-       ↓
-Potential Duplicate Records
-```
-
-> **Recovery Rule:** Truncate the affected target table before rerunning a `MERGE` whenever the key-generation strategy has changed.
-
-### Data Quality Automation
-
-Data-quality validation is automated using **Great Expectations (GX)** and supporting validation scripts.
-
-The validation workflow is:
-
-```text
-07_gx_checks.py
-       ↓
-GX Expectations
-       ↓
-Layer Validation
-       ↓
-PASS / WARN / FAIL
-       ↓
-Quality Gate
-       ↓
-Continue / Block Pipeline
-```
-
-GX provides a standardized validation framework across the **Bronze, Silver, and Gold layers**, replacing the previous layer-specific QC implementation.
-
-#### Quality Status
-
-| Status | Description | Pipeline Action |
-|---|---|---|
-| `PASS` | All required expectations are satisfied. | Continue |
-| `WARN` | Issues are within the configured tolerance. | Continue with warning |
-| `FAIL` | Quality thresholds are breached. | Block when configured as a blocking check |
-
-###  Operational Principles
-
-The pipeline follows these core operational standards:
-
-- **Consistency** — Use UTC across all notebook sessions.
-- **Determinism** — Generate keys independently of session timezone.
-- **Safe Recovery** — Reset affected targets when key-generation logic changes.
-- **Controlled MERGE** — Validate target state before and after `MERGE` operations.
-- **Automated Quality** — Use GX to standardize data-quality validation.
-- **Quality Gates** — Prevent critical data-quality failures from progressing through the pipeline.
-
-> **Goal:** Maintain a reliable and recoverable pipeline by combining deterministic processing, controlled recovery procedures, and automated data-quality gates.
+   Key / Schema Change Identified
+                │
+                ▼
+     TRUNCATE Target Table
+                │
+                ▼
+       Apply Updated Logic
+                │
+                ▼
+           Run MERGE
+                │
+                ▼
+    Validate Results (QC Gates)
+5.3 Operational Runbooks🛠️ Runbook A: Remediating Pipeline FailuresLocate the failed job run in the Databricks UI and note the failing task.Query nyc_quality.dq_results to isolate failing checks:SQLSELECT * FROM nyc_quality.dq_results
+WHERE layer = '<layer_name>'
+  AND batch_month = '<batch_month>'
+  AND status = 'FAIL';
+Apply required code fixes or data cleanup.Execute a Repair Run in Databricks Jobs or re-trigger the workflow for the target year_month.Confirm that dq_run_log.overall_status evaluates to PASS or WARN.🛠️ Runbook B: Fixing CI/CD Deployment ErrorsReview the failure step log in GitHub Actions.For 401 Unauthorized errors, update expired DATABRICKS_HOST or DATABRICKS_TOKEN environment secrets.For bundle validation failures, execute databricks bundle validate locally to test YAML syntax before re-pushing.
