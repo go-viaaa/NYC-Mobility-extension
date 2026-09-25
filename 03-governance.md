@@ -1,58 +1,121 @@
-##  Data Quality & Runtime Monitoring
+# Governance and Repository Improvements
 
-Runtime data quality is governed by **291 checks across five layers**, including **102 blocking checks** that halt pipeline execution when critical quality limits are breached.
+## Overview
 
-### Five-Layer Data Quality Matrix
+To improve maintainability, security, collaboration, and deployment reliability, several governance and repository standards were introduced throughout the project lifecycle.
 
-| **Layer** | **Total Checks** | **Blocking Checks** | **Governance Focus** | **Gate Indicator** |
-|---|---:|---:|---|---|
-| **Preload** | 101 | 17 | Evaluates source file layout, cast safety, and domain rules before landing. | `source_cleared_for_bronze` |
-| **Bronze** | 42 | 28 | Confirms source-to-target row fidelity and `no_nulls_added_*` checks. | `batch_cleared_for_silver` |
-| **Silver** | 87 | 34 | Validates classification promises (`dq_status`), quarantines, and formulas. | `batch_cleared_for_gold` |
-| **Gold** | 49 | 21 | Verifies star schema construction, key derivations, and calendar integrity. | `warehouse_cleared` |
-| **At-Rest** | 12 | 2 | Assesses standing referential integrity across fact/dimension foreign keys. | `referential_integrity_holds` |
-| **Total** | **291** | **102** | | |
+This document summarizes the key improvements by comparing the project's previous state with the current implementation.
 
-###  Status Resolution Ladder
+---
 
-Every check resolves through a strict five-branch condition order:
+# Before vs After
 
-```sql
-CASE
-  WHEN total_rows = 0 AND check_name <> 'table_not_empty' THEN 'SKIP'
-  WHEN failed_rows = 0 THEN 'PASS'
-  WHEN failed_pct <= warn_pct THEN 'PASS'
-  WHEN failed_rows <= min_failed_rows THEN 'WARN'
-  WHEN failed_pct <= threshold_pct THEN 'WARN'
-  ELSE 'FAIL'
-END
-```
+## 1. Naming Standards
 
-- **`SKIP`** — Evaluated when the batch is empty and the check is not `table_not_empty`.
-- **`PASS`** — Assigned when no failures exist or the failure rate remains within `warn_pct`.
-- **`WARN`** — Assigned when failure counts or percentages remain within the defined tolerance thresholds (`min_failed_rows` or `threshold_pct`).
-- **`FAIL`** — Triggered when configured failure limits are breached; blocks execution when the `(table, check)` pair is listed on the layer's blocking list.
+### Before
+- Naming conventions were inconsistent across schemas, tables, columns, files, and folders.
+- Mixed casing styles were used (camelCase, PascalCase, snake_case).
+- Developers had to manually interpret naming patterns.
 
-###  Threshold Configurations
+### After
+- Standardized `snake_case` naming convention across:
+  - Catalogs
+  - Schemas
+  - Tables
+  - Columns
+  - File names
+  - SQL objects
+- Improved readability and consistency across the entire repository.
+- Reduced onboarding effort for new contributors.
 
-| **Configuration** | **Threshold** | **Application** |
-|---|---:|---|
-| **`STRICT`** | 0% | Applied to scalar checks, primary keys, and non-null key constraints such as `location_id_unique`, `location_id_not_null`, and `date_not_null`. |
-| **`TOL`** | 10% | Applied to imperfect source-data categories where minor data quality issues are tolerable. |
-| **`CAST_WARN`** | 5% | Warning threshold for string-to-datatype conversions. |
-| **`CAST_FAIL`** | 10% | Failure threshold for string-to-datatype conversions, including the `no_nulls_added_*` family in Bronze. |
-| **`MIN_ROWS`** | 5 rows | Minimum row threshold used to prevent single-row anomalies from unnecessarily stopping large batches. |
+**Impact:** Easier maintenance, clearer codebase, and more predictable development standards.
 
-###  Great Expectations (GX) Infrastructure & Operational State
+---
 
-#### Output Location & Catalog Structure
+## 2. Access Control and Permissions
 
-The **Great Expectations (GX)** suite writes to the `nyc-mobility` catalog (hyphenated) under the `nyc_quality` schema. This is distinct from the standard SQL QC implementation, which targets the `nyc_mobility` catalog (underscored).
+### Before
+- Team members had excessive permissions.
+- Access included:
+  - Databricks jobs
+  - Personal workspace directories
+  - Project files
+  - Administrative capabilities beyond required responsibilities
+- Principle of least privilege was not enforced.
 
-| **Table / View** | **Rows** | **Description** |
-|---|---:|---|
-| `dq_results` | 16 | Individual check results. |
-| `dq_run_log` | 0 | Run summaries; currently unpopulated while `save_run_log` is pending completion. |
-| `dq_rules` | 0 | Threshold overrides; none currently configured. |
-| `vw_latest_dq_results` | 16 | View of the most recent check results. |
-| `vw_latest_dq_run` | 0 | View of the most recent run log. |
+### After
+- Permissions reviewed and restricted according to project responsibilities.
+- Access granted only where necessary.
+- Administrative privileges reduced where not required.
+- Personal workspace exposure minimized.
+
+**Impact:** Improved security, reduced risk of accidental changes, and stronger governance compliance.
+
+---
+
+## 3. Branch Protection
+
+### Before
+- Main branch could be modified directly.
+- Team members could merge changes without enforced review.
+- Risk of unstable code reaching production-ready branches.
+
+### After
+- Branch protection rules implemented.
+- Direct modifications to protected branches restricted.
+- Controlled merge process established.
+
+**Impact:** Increased repository stability and reduced risk of unreviewed code entering critical branches.
+
+---
+
+## 4. Pull Request Review Enforcement
+
+### Before
+- Review requirements were defined but not enforced.
+- Repository rulesets existed but were not deployed.
+- Pull requests could potentially be merged without formal approval.
+
+### After
+- Repository rulesets deployed and enforced.
+- Pull request reviews required before merge.
+- Approval workflow integrated into repository governance process.
+
+**Impact:** Improved code quality, accountability, and knowledge sharing across the team.
+
+---
+
+## 5. Repository Governance
+
+### Before
+- Governance processes relied heavily on individual discretion.
+- Standards existed informally but lacked technical enforcement.
+
+### After
+- Governance controls enforced through repository configuration.
+- Branch protections and review requirements became part of the development workflow.
+- Collaborative development standards formalized.
+
+**Impact:** More reliable, auditable, and scalable development process.
+
+---
+
+# Summary of Improvements
+
+✅ Standardized snake_case naming conventions
+
+✅ Reduced unnecessary access and administrative privileges
+
+✅ Protected critical branches from unauthorized changes
+
+✅ Enforced pull request review approvals
+
+✅ Activated repository governance rulesets
+
+✅ Established stronger collaboration and code quality controls
+
+---
+
+# Overall Impact
+
+The project has evolved from a loosely governed development environment into a more secure, maintainable, and collaboration-ready platform. These governance improvements reduce operational risk, improve code quality, support team scalability, and align development practices with industry-standard software engineering and data governance principles.
