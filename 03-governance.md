@@ -1,58 +1,222 @@
-##  Data Quality & Runtime Monitoring
+# Governance and Process Improvements
 
-Runtime data quality is governed by **291 checks across five layers**, including **102 blocking checks** that halt pipeline execution when critical quality limits are breached.
+## Overview
 
-### Five-Layer Data Quality Matrix
+To improve security, maintainability, collaboration, and operational reliability, multiple governance controls and standards were introduced throughout the project lifecycle.
 
-| **Layer** | **Total Checks** | **Blocking Checks** | **Governance Focus** | **Gate Indicator** |
-|---|---:|---:|---|---|
-| **Preload** | 101 | 17 | Evaluates source file layout, cast safety, and domain rules before landing. | `source_cleared_for_bronze` |
-| **Bronze** | 42 | 28 | Confirms source-to-target row fidelity and `no_nulls_added_*` checks. | `batch_cleared_for_silver` |
-| **Silver** | 87 | 34 | Validates classification promises (`dq_status`), quarantines, and formulas. | `batch_cleared_for_gold` |
-| **Gold** | 49 | 21 | Verifies star schema construction, key derivations, and calendar integrity. | `warehouse_cleared` |
-| **At-Rest** | 12 | 2 | Assesses standing referential integrity across fact/dimension foreign keys. | `referential_integrity_holds` |
-| **Total** | **291** | **102** | | |
+The following sections compare the project's previous state with the current implementation.
 
-###  Status Resolution Ladder
+---
 
-Every check resolves through a strict five-branch condition order:
+# 1. Repository Governance
 
-```sql
-CASE
-  WHEN total_rows = 0 AND check_name <> 'table_not_empty' THEN 'SKIP'
-  WHEN failed_rows = 0 THEN 'PASS'
-  WHEN failed_pct <= warn_pct THEN 'PASS'
-  WHEN failed_rows <= min_failed_rows THEN 'WARN'
-  WHEN failed_pct <= threshold_pct THEN 'WARN'
-  ELSE 'FAIL'
-END
-```
+## Before
 
-- **`SKIP`** — Evaluated when the batch is empty and the check is not `table_not_empty`.
-- **`PASS`** — Assigned when no failures exist or the failure rate remains within `warn_pct`.
-- **`WARN`** — Assigned when failure counts or percentages remain within the defined tolerance thresholds (`min_failed_rows` or `threshold_pct`).
-- **`FAIL`** — Triggered when configured failure limits are breached; blocks execution when the `(table, check)` pair is listed on the layer's blocking list.
+- Main branch could be modified without sufficient safeguards.
+- Direct merges to protected branches were possible.
+- Pull request review requirements were defined but not enforced.
+- Governance controls relied largely on team discipline.
+- Code ownership and approval accountability were limited.
 
-###  Threshold Configurations
+## After
 
-| **Configuration** | **Threshold** | **Application** |
-|---|---:|---|
-| **`STRICT`** | 0% | Applied to scalar checks, primary keys, and non-null key constraints such as `location_id_unique`, `location_id_not_null`, and `date_not_null`. |
-| **`TOL`** | 10% | Applied to imperfect source-data categories where minor data quality issues are tolerable. |
-| **`CAST_WARN`** | 5% | Warning threshold for string-to-datatype conversions. |
-| **`CAST_FAIL`** | 10% | Failure threshold for string-to-datatype conversions, including the `no_nulls_added_*` family in Bronze. |
-| **`MIN_ROWS`** | 5 rows | Minimum row threshold used to prevent single-row anomalies from unnecessarily stopping large batches. |
+- Branch protection rules implemented.
+- Pull request approvals required before merging.
+- Repository rulesets activated and enforced.
+- Merge process standardized through PR workflow.
+- Review and approval process became mandatory for repository changes.
 
-###  Great Expectations (GX) Infrastructure & Operational State
+### Impact
 
-#### Output Location & Catalog Structure
+- Improved code quality and repository stability.
+- Reduced risk of unreviewed or accidental changes.
+- Increased accountability and auditability of repository activity.
 
-The **Great Expectations (GX)** suite writes to the `nyc-mobility` catalog (hyphenated) under the `nyc_quality` schema. This is distinct from the standard SQL QC implementation, which targets the `nyc_mobility` catalog (underscored).
+---
 
-| **Table / View** | **Rows** | **Description** |
-|---|---:|---|
-| `dq_results` | 16 | Individual check results. |
-| `dq_run_log` | 0 | Run summaries; currently unpopulated while `save_run_log` is pending completion. |
-| `dq_rules` | 0 | Threshold overrides; none currently configured. |
-| `vw_latest_dq_results` | 16 | View of the most recent check results. |
-| `vw_latest_dq_run` | 0 | View of the most recent run log. |
+# 2. Access & Security Governance
+
+## Before
+
+- Team members had broader access than required.
+- Access included:
+  - Databricks jobs
+  - Workspace resources
+  - Project files
+  - Administrative permissions beyond assigned responsibilities
+- Least-privilege principles were not consistently applied.
+
+## After
+
+- Permissions reviewed and restricted based on role and responsibility.
+- Unnecessary administrative access removed.
+- Workspace and job access limited to required users.
+- Access control aligned more closely with least-privilege principles.
+
+### Impact
+
+- Reduced security risk.
+- Lower chance of accidental modifications.
+- Improved governance and access accountability.
+
+---
+
+# 3. Standards Governance
+
+## Before
+
+- Naming conventions were inconsistent.
+- Mixed use of camelCase, PascalCase, and snake_case.
+- Repository organization depended on individual developer preferences.
+- Standards were informal and inconsistently applied.
+
+## After
+
+- Standardized `snake_case` naming convention adopted across:
+  - Catalogs
+  - Schemas
+  - Tables
+  - Columns
+  - Files
+  - SQL objects
+- Improved consistency across project assets.
+- Shared development standards established.
+
+### Impact
+
+- Easier onboarding for contributors.
+- Improved readability and maintainability.
+- Reduced confusion during development and review.
+
+---
+
+# 4. Change Management Governance
+
+## Before
+
+- Development process lacked consistently enforced approval controls.
+- Changes could move through the workflow with limited governance oversight.
+- Review history was not guaranteed for every change.
+
+## After
+
+- Formal PR review workflow adopted.
+- Approval history captured through repository governance controls.
+- Change management process standardized across contributors.
+
+### Impact
+
+- Better traceability of changes.
+- Stronger accountability.
+- Improved collaboration and knowledge sharing.
+
+---
+
+# 5. Deployment Governance
+
+## Before
+
+- More deployment decisions depended on manual processes.
+- Environment-specific configurations increased deployment risk.
+- Changes were harder to reproduce consistently.
+
+## After
+
+- Databricks Asset Bundles (DAB) used for deployment-as-code.
+- Configuration-driven deployments reduced hardcoded dependencies.
+- Deployments became more repeatable across environments.
+- Environment configuration standardized.
+
+### Impact
+
+- Improved deployment consistency.
+- Reduced operational risk.
+- Better reproducibility and maintainability.
+
+---
+
+# 6. Data Governance
+
+## Before
+
+- Data quality controls primarily relied on custom SQL checks.
+- Validation rules were less centralized and less reusable.
+- Governance controls varied by implementation.
+
+## After
+
+- Great Expectations validation framework implemented.
+- Reusable validation suites created.
+- Data quality gates integrated into the Medallion pipeline.
+- Validation became standardized and easier to maintain.
+
+### Impact
+
+- Improved trust in data outputs.
+- More consistent data quality enforcement.
+- Stronger governance over critical datasets.
+
+---
+
+# 7. Documentation Governance
+
+## Before
+
+- Project knowledge was distributed across implementation details and team discussions.
+- Documentation coverage was limited.
+- Operational knowledge depended heavily on individual contributors.
+
+## After
+
+- README and project documentation expanded.
+- Architecture and deployment documentation improved.
+- Setup and operational procedures documented.
+- Version tracking and project history better maintained.
+
+### Impact
+
+- Improved maintainability.
+- Reduced onboarding effort.
+- Better long-term project sustainability.
+
+---
+
+# Summary of Governance Improvements
+
+✅ Branch protection enforced
+
+✅ Mandatory PR approvals implemented
+
+✅ Repository rulesets activated
+
+✅ Least-privilege access controls applied
+
+✅ Standardized snake_case naming conventions
+
+✅ Deployment governance through DAB
+
+✅ Data quality governance through Great Expectations
+
+✅ Formalized change management process
+
+✅ Improved documentation governance
+
+✅ Enhanced auditability and collaboration controls
+
+---
+
+# Overall Impact
+
+The project evolved from a largely trust-based development environment into a governed, secure, and scalable data platform.
+
+Key outcomes include:
+
+- Stronger repository governance
+- Improved security and access control
+- Better change management practices
+- More reliable deployment processes
+- Standardized development practices
+- Enhanced data quality governance
+- Improved maintainability and collaboration
+
+**Result:** A more secure, auditable, maintainable, and collaboration-ready platform aligned with software engineering, DevOps, and data governance best practices.
