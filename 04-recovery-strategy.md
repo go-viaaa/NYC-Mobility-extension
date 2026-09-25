@@ -2,6 +2,21 @@
 
 This section defines the operational standards for timezone management, deterministic key generation, safe recovery, `MERGE` operations, and automated data-quality validation.
 
+### Task Failure Behavior & Isolation
+
+- **Selective Table Holdback** — A `FAIL` on a non-required table holds back only the affected table, allowing unaffected pipelines to proceed.
+- **Hard Stop Gating** — If a check on `v_required_tables` fails, or if total failures exceed `v_max_total_failures` (`5`), the layer writes a `STOP` gate record and triggers `raise_error()`. This halts downstream execution before contaminated data can reach the Gold layer.
+
+### 4.2 Idempotency & Safe Rerun Strategy
+
+- **Session Timezone Pinning** — All jobs execute `SET TIME ZONE 'UTC'` to ensure deterministic key generation, including `unix_timestamp` and date-based keys, regardless of cluster location.
+
+- **Safe Re-execution (`TRUNCATE` Rule)**:
+  - Before rerunning a `MERGE` task where key-generation logic or session parameters have changed, execute a `TRUNCATE` on the target table.
+  - **Reason:** Rerunning `WHEN NOT MATCHED THEN INSERT` with modified key expressions without truncating can create duplicate fact records, such as increasing row counts from `44,208` to `88,416`.
+
+- **Atomic Batch Scoping** — Ingestion and cleaning tasks are scoped using `batch_month` and `source_file`, allowing individual monthly batches to be rerun independently and idempotently.
+
 ### Timezone Management
 
 All notebooks must explicitly use UTC to ensure consistent timestamp handling across environments.
