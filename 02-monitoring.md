@@ -1,4 +1,32 @@
-## Data Quality & Runtime Monitoring
+# 🔍 02 · Data Quality & Runtime Monitoring
+
+[![Owner](https://img.shields.io/badge/owner-jg0901-blue?style=flat-square)](https://github.com/jg0901)
+[![As Of](https://img.shields.io/badge/as%20of-2026--09--25-brightgreen?style=flat-square)](02-monitoring.md)
+[![Scope](https://img.shields.io/badge/DQ%20Scope-291%20Checks%20%2F%20102%20Blocking-orange?style=flat-square)](02-monitoring.md)
+
+This document details the observability pillars, data-quality matrix, status resolution ladder, and threshold configurations governing the NYC Mobility Data Pipeline.
+
+---
+
+## 1. Observability & Monitoring Pillars
+
+Runtime monitoring tracks four core operational pillars across pipeline execution, failure handling, data freshness, and quality metrics:
+
+| Pillar | What is Monitored | Implementation / Mechanism | Frequency |
+|---|---|---|---|
+| **Execution** | Task status, duration, and overall pipeline progress | Databricks job history (`NYC_Mobility`, `NYC Mobility - GX`), GitHub Actions logs, `nyc_quality.dq_run_log`, and `vw_latest_dq_run`. | Every run |
+| **Failures** | Task exceptions, rule breaches, and blocking quality gate stops | Synthetic gate records in `nyc_quality.dq_results` (`check_category = 'gate'`) triggering `raise_error` on `STOP` / `FAIL`. | Every run |
+| **Freshness** | Batch arrival times, land timestamps, and max boundary updates | `tests/09_freshness_check.sql` (`bronze_taxi_fresh`, `bronze_weather_fresh`, `silver_taxi_fresh`, `silver_weather_fresh`, `gold_fact_fresh`) and Gold `v_as_of` labels. | On demand / Daily schedule |
+| **Data Quality** | 291 rules across 5 layers + Great Expectations health trends | NYC Mobility Data Quality Dashboard over `nyc_quality.dq_results` and `vw_dq_by_month`. | Every run |
+
+### 1.1 Alerting Configuration
+
+Automated failure notifications are configured directly within the job workflow definition (`resources/jobs/nyc_mobility_job.yml`):
+
+```yaml
+email_notifications:
+  on_failure:
+    - <team-alias@example.com>## Data Quality & Runtime Monitoring
 
 ### Monitoring Pillars
 
@@ -60,3 +88,12 @@ TOL	10%	Source-data checks where minor data imperfections are considered tolerab
 CAST_WARN	5%	Warning threshold for string-to-datatype conversions.
 CAST_FAIL	10%	Failure threshold for string-to-datatype conversions, including the Bronze no_nulls_added_* checks.
 MIN_ROWS	5 rows	Minimum row threshold used to prevent isolated anomalies from unnecessarily stopping large batches.
+
+📌 Key Rule Exemption: The MIN_ROWS floor is explicitly disabled (min_failed_rows = 0) for scalar checks, primary key checks, and key not-null guards (location_id_unique, one_row_per_hour, location_id_not_null, date_not_null).
+
+5. Known Advisories (Expected Behavior)
+The following anomalies represent expected domain behavior and do not indicate pipeline bugs:
+
+UTC / US-Eastern Boundary Offsets: Offset hours at month boundaries appear in hour_within_batch_month and hour_within_covered_months checks due to timezone alignment.
+
+End-of-Month Trips Without Weather: Approximately 0.4% of trips occurring at month boundaries may lack matching weather observations (trips_without_weather).
