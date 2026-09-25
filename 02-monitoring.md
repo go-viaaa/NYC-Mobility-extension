@@ -1,1 +1,10 @@
-
+1.  dq_setup_v3          (Initialize Quality Framework Schema & Tables)
+2.  silver_green_taxi    (Pre-processing views)
+3.  preload_checks       (Run PySpark 101 source file checks)
+4.  bronze_queries       ──► bronze_qc_v3 (Load Bronze & Evaluate 42 checks)
+5.  nyc_silver_queries   ──► silver_qc_v3 (Clean Silver & Evaluate 87 checks)
+6.  gold_dim_date        (Rebuild dimension calendar)
+7.  gold_queries         (Build dim_weather, dim_taxi_zone, fact_taxi_trip)
+8.  gold_qc_v2           (Evaluate 49 Gold layer checks)
+9.  at_rest_checks       (Evaluate 12 warehouse-at-rest checks)
+10. dq_rules_setup       (Run §3 drift query to ensure catalog alignment)
