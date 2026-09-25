@@ -27,16 +27,16 @@ Building on the integration of taxi trips, weather conditions, and taxi zone met
 
 | Module | Document | Core Focus |
 | --- | --- | --- |
-| **00** | [Delivery: Version, Deploy, Orchestrate](https://www.google.com/search?q=00-delivery.md&utm_source=gemini)[cite: 5] | How code changes reach production and the execution order of the pipeline[cite: 5]. |
-| **01** | [Architecture](https://www.google.com/search?q=01-architecture.md&utm_source=gemini)[cite: 5] | Source systems, medallion layers, table schemas, and quality gate triggers[cite: 5]. |
-| **02** | [Monitoring](https://www.google.com/search?q=02-monitoring.md&utm_source=gemini)[cite: 5] | Pipeline observability, check status resolution, and execution logging[cite: 5]. |
-| **03** | [Governance](https://www.google.com/search?q=03-governance.md&utm_source=gemini)[cite: 5] | Naming conventions, ownership mappings, catalog permissions, and data lineage[cite: 5]. |
-| **04** | [Failure & Recovery Strategy](https://www.google.com/search?q=04-recovery-strategy.md&utm_source=gemini)[cite: 5] | Handling task exceptions, table isolation, and safe, idempotent reruns[cite: 5]. |
-| **05** | [Extension Tools](https://www.google.com/search?q=05-extension-tool.md&utm_source=gemini)[cite: 5] | Analysis of added tools, design choices, trade-offs, and operational results[cite: 5]. |
+| **00** | [Delivery: Version, Deploy, Orchestrate](https://www.google.com/search?q=00-delivery.md&utm_source=gemini) | How code changes reach production and the execution order of the pipeline. |
+| **01** | [Architecture](https://www.google.com/search?q=01-architecture.md&utm_source=gemini)[cite: 5] | Source systems, medallion layers, table schemas, and quality gate triggers. |
+| **02** | [Monitoring](https://www.google.com/search?q=02-monitoring.md&utm_source=gemini) | Pipeline observability, check status resolution, and execution logging. |
+| **03** | [Governance](https://www.google.com/search?q=03-governance.md&utm_source=gemini) | Naming conventions, ownership mappings, catalog permissions, and data lineage. |
+| **04** | [Failure & Recovery Strategy](https://www.google.com/search?q=04-recovery-strategy.md&utm_source=gemini) | Handling task exceptions, table isolation, and safe, idempotent reruns. |
+| **05** | [Extension Tools](https://www.google.com/search?q=05-extension-tool.md&utm_source=gemini) | Analysis of added tools, design choices, trade-offs, and operational results. |
 
 ---
 
 ## 👥 Audience Guide
 
-* **Team Members & Contributors**: Use documents **[03 Governance](https://www.google.com/search?q=03-governance.md&utm_source=gemini)** and **[04 Failure & Recovery](https://www.google.com/search?q=04-recovery-strategy.md&utm_source=gemini)** for daily engineering standards, branching conventions, and operational runbooks[cite: 5].
-* **Reviewers & Instructors**: Refer to documents **[00 Delivery](https://www.google.com/search?q=00-delivery.md&utm_source=gemini)** and **[05 Extension Tools](https://www.google.com/search?q=05-extension-tool.md&utm_source=gemini)** to audit architectural upgrades, CI/CD mechanics, and tool integration evaluations[cite: 5].
+* **Team Members & Contributors**: Use documents **[03 Governance](https://www.google.com/search?q=03-governance.md&utm_source=gemini)** and **[04 Failure & Recovery](https://www.google.com/search?q=04-recovery-strategy.md&utm_source=gemini)** for daily engineering standards, branching conventions, and operational runbooks.
+* **Reviewers & Instructors**: Refer to documents **[00 Delivery](https://www.google.com/search?q=00-delivery.md&utm_source=gemini)** and **[05 Extension Tools](https://www.google.com/search?q=05-extension-tool.md&utm_source=gemini)** to audit architectural upgrades, CI/CD mechanics, and tool integration evaluations.
