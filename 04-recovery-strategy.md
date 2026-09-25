@@ -7,7 +7,7 @@ This section defines the operational standards for timezone management, determin
 - **Selective Table Holdback** — A `FAIL` on a non-required table holds back only the affected table, allowing unaffected pipelines to proceed.
 - **Hard Stop Gating** — If a check on `v_required_tables` fails, or if total failures exceed `v_max_total_failures` (`5`), the layer writes a `STOP` gate record and triggers `raise_error()`. This halts downstream execution before contaminated data can reach the Gold layer.
 
-### 4.2 Idempotency & Safe Rerun Strategy
+### Idempotency & Safe Rerun Strategy
 
 - **Session Timezone Pinning** — All jobs execute `SET TIME ZONE 'UTC'` to ensure deterministic key generation, including `unix_timestamp` and date-based keys, regardless of cluster location.
 
