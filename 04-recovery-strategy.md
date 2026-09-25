@@ -12,37 +12,40 @@ All notebooks must explicitly enforce UTC to ensure consistent timestamp handlin
 SET TIME ZONE 'UTC';
 
 
-
-
 **Deterministic Key Generation**
-Primary and surrogate keys must not be derived from session-dependent timestamp representations, such as:
+
+Primary and surrogate keys must be generated using** timezone-independent logic**.
+
+Avoid deriving keys directly from session-dependent expressions such as:
 
 CAST(ts AS STRING)
 DATE(ts)
 
-Reason: Different session timezones can produce different key values from the same timestamp, potentially resulting in inconsistent keys and duplicate records.
+Different session timezones can produce different values from the same timestamp, which may result in **inconsistent keys or duplicate records.**
 
-Standard: Use timezone-independent and deterministic logic when generating primary or surrogate keys.
+Standard: Key-generation logic must produce the same key regardless of the execution environment or session timezone.
 
-------------
 **Recovery & MERGE Safety**
 
-**Schema or Key Strategy Changes**
+Changes to schema definitions or key-generation logic require a controlled recovery process.
 
-When the schema or key-generation logic changes, the affected target table must be reset before rerunning the pipeline.
+**Schema or Key Changes**
 
-**Required sequence:**
-1. TRUNCATE affected target table
-            ↓
-2. Apply updated schema/key logic
-            ↓
-3. Re-run MERGE operation
+When key-generation logic or the target schema changes:
 
-This prevents records generated using the previous schema or key logic from remaining in the target table.
+TRUNCATE Target Table
+        ↓
+Apply Updated Logic
+        ↓
+Run MERGE
+        ↓
+Validate Results
 
-**Key Duplication Prevention**
+This ensures that records created using the previous logic do not remain in the target table.
 
-Changing key-generation logic without truncating the existing target table can result in duplicate records:
+**Preventing Duplicate Records**
+
+Running a MERGE after changing key logic without resetting the target table can result in duplicate records:
 
 Existing Records
        +
@@ -50,32 +53,45 @@ Updated Key Logic
        ↓
      MERGE
        ↓
-Duplicate Fact Records
+Potential Duplicate Records
 
-**Recovery Rule: ** Always truncate the affected target table before rerunning a MERGE when key-generation logic has changed.
+**Recovery Rule:** Truncate the affected target table before rerunning a MERGE whenever the key-generation strategy has changed.
 
-------
-**Data Quality Automation**
+** Data Quality Automation**
 
-Data-quality validation is automated using Great Expectations (GX) and supporting validation scripts.
+Data-quality validation is automated using **Great Expectations (GX)** and supporting validation scripts.
 
-The validation process follows:
+The validation workflow is:
+
 07_gx_checks.py
        ↓
 GX Expectations
        ↓
-Layer Quality Validation
+Layer Validation
        ↓
 PASS / WARN / FAIL
        ↓
-Pipeline Quality Gate
+Quality Gate
+       ↓
+Continue / Block Pipeline
 
-GX standardizes data-quality validation across the **Bronze, Silver, and Gold layers**, replacing the previous layer-specific QC implementation.
+GX provides a standardized validation framework across the Bronze, Silver, and Gold layers, replacing the previous layer-specific QC implementation.
 
-**Quality Gate Behavior**
-**Status**	| **Meaning**
-| PASS |	Data meets the defined quality expectations. |
-| WARN |	Data has issues within the configured tolerance.|
-| FAIL |	Data breaches defined quality thresholds and may block pipeline execution.|
+Quality Status
+Status	Description	Pipeline Action
+PASS	All required expectations are satisfied.	Continue
+WARN	Issues are within the configured tolerance.	Continue with warning
+FAIL	Quality thresholds are breached.	Block when configured as a blocking check
 
-Operational Goal: Ensure that data-quality issues are detected consistently before unreliable data progresses to the next pipeline layer.
+**Operational Principles**
+
+The pipeline follows these core operational standards:
+
+**Consistency** — Use UTC across all notebook sessions.
+**Determinism **— Generate keys independently of session timezone.
+**Safe Recovery** — Reset affected targets when key-generation logic changes.
+**Controlled MERGE** — Validate target state before and after MERGE operations.
+**Automated Quality** — Use GX to standardize data-quality validation.
+**Quality Gates **— Prevent critical data-quality failures from progressing through the pipeline.
+
+Goal: Maintain a reliable and recoverable pipeline by combining deterministic processing, controlled recovery procedures, and automated data-quality gates.
