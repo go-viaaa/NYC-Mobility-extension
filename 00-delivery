@@ -1,0 +1,116 @@
+# 🚀 00 · Delivery: Versioning, Deployment & Orchestration
+
+This document details how code changes move from development into production, the automated CI/CD workflows enforcing code standards, and the orchestration DAG governing the `NYC_Mobility` Databricks job[cite: 6].
+
+---
+
+## 1. How a Change Reaches Production
+
+Every repository update follows a strict, automated 7-step deployment lifecycle[cite: 6]:
+
+```text
+Change  ──►  Test  ──►  Commit  ──►  Push  ──►  Deploy  ──►  Run  ──►  Verify
+
+```
+
+### 1.1 Deployment Lifecycle Steps
+
+| Step | Action | Execution Context / Path |
+| --- | --- | --- |
+| **Change** | Work on an isolated feature branch (`feature/...`, `fix/...`)[cite: 6]. | Git[cite: 6] |
+| **Test** | Opening a PR triggers automated testing: formatting, linting, `pytest`, and bundle validation[cite: 6]. | `.github/workflows/ci.yaml` <br>
+
+<br> `pr-checks.yml`[cite: 6] |
+| **Commit** | Auto Format commits style fixes back to the PR[cite: 6]. Auto Reviewer assigns a teammate[cite: 6]. `CODEOWNERS` assigns directory owners[cite: 6]. | `auto-format.yml` <br>
+
+<br> `auto-reviewer.yml` <br>
+
+<br> `.github/CODEOWNERS`[cite: 6] |
+| **Push** | The PR is merged into `feature/staging-part-2` after peer review approval[cite: 6]. | GitHub[cite: 6] |
+| **Deploy** | Bundle validation and deployment: `databricks bundle validate` $\rightarrow$ `databricks bundle deploy -t dev`[cite: 6]. | `.github/workflows/deploy.yaml` <br>
+
+<br> `databricks.yml`[cite: 6] |
+| **Run** | Executes the pipeline job: `databricks bundle run -t dev NYC_Mobility`[cite: 6]. | `resources/jobs/nyc_mobility_job.yml`[cite: 6] |
+| **Verify** | Quality tasks write results to `nyc_quality.dq_results` / `dq_run_log`, rendering results in the Data Quality dashboard[cite: 6]. | `tests/0*_qc.sql` <br>
+
+<br> `dashboards/`[cite: 6] |
+
+---
+
+### 1.2 GitHub Actions Workflows
+
+Automated workflows handle continuous integration, code formatting, reviewer assignment, and deployment[cite: 6]:
+
+| Workflow | Trigger | Execution Steps |
+| --- | --- | --- |
+| **CI** | PR or push targeting `feature/staging-part-2`[cite: 6] | Runs `black`, `isort`, `flake8`, `sqlfluff`, `pytest`, and `databricks bundle validate`[cite: 6]. |
+| **Deploy Databricks Bundle** | Push targeting `feature/staging-part-2`[cite: 6] | Validates $\rightarrow$ deploys $\rightarrow$ runs `NYC_Mobility` (uses `DATABRICKS_HOST` and `DATABRICKS_TOKEN` secrets)[cite: 6]. |
+| **PR Checks** | PR targeting `main` or `staging`[cite: 6] | Project structure validation + `pytest` suite execution[cite: 6]. |
+| **Auto Format & Commit** | PR opened or updated[cite: 6] | Applies `sqlfluff fix`, `black`, `isort`, `nbstripout`, and commits changes directly back to the PR branch[cite: 6]. |
+| **Auto Assign Reviewer** | PR opened[cite: 6] | Rotates reviewers: `jess-christine` $\rightarrow$ `catweyine` $\rightarrow$ `jg0901` $\rightarrow$ `go-viaaa` $\rightarrow$ `JoanMaquinano` $\rightarrow$ `jess-christine`[cite: 6]. |
+
+> ⚠️ **Deployment Status & Known Blockers (As of 2026-09-25):**[cite: 6]
+> * ✅ **PR Checks** & **Auto Assign Reviewer** workflows pass successfully[cite: 6].
+> * ❌ **CI Workflow Failure**: Fails at the `sqlfluff` step due to missing `param_style` in the placeholder templater config (blocking downstream `pytest` and bundle validation)[cite: 6].
+> * ❌ **Deploy Run #1 Failure**: Failed with `401 Unauthorized`—requires the `DATABRICKS_TOKEN` secret to be configured in the GitHub `staging` environment[cite: 6].
+> 
+> 
+
+---
+
+### 1.3 Databricks Asset Bundle Targets (`databricks.yml`)
+
+The repository supports distinct execution environments via Databricks Asset Bundles[cite: 6]:
+
+| Target | Mode | Operational Purpose |
+| --- | --- | --- |
+| `dev` *(Default)* | Development mode (resources prefixed per user)[cite: 6] | Staging integration runs triggered from CI workflows[cite: 6]. |
+| `prod` | Production mode (root path: `~/.bundle/nyc_mobility/prod`)[cite: 6] | Production pipeline deployment and schedule execution[cite: 6]. |
+
+---
+
+## 2. Pipeline Orchestration (`NYC_Mobility` Job)
+
+The pipeline is orchestrated as a single Databricks job named **`NYC_Mobility`**, defined in YAML using explicit `depends_on` task dependencies[cite: 6]:
+
+```text
+                     Preload_Checks
+                           │
+                           ▼
+   ┌───────────────────────┼───────────────────────┐
+   │                       │                       │
+Green_Taxi_Bronze   Taxi_Zones_Bronze    Weather_Bronze
+   │                       │                       │
+   └───────────────────────┼───────────────────────┘
+                           │
+                           ▼
+                       Bronze_QC            ◄── Gate: batch_cleared_for_silver
+                           │
+                           ▼
+   ┌───────────────────────┼───────────────────────┐
+   │                       │                       │
+Green_Taxi_Silver   Taxi_Zone_Silver     Weather_Silver
+   │                       │                       │
+   └───────────────────────┼───────────────────────┘
+                           │
+                           ▼
+                       Silver_QC            ◄── Gate: batch_cleared_for_gold
+                           │
+                           ▼
+   ┌───────────────┬───────┴───────┬───────────────┐
+   │               │               │               │
+Dim_Date    Dim_Taxi_Zone    Dim_Weather       Fact_Trip
+   │               │               │               │
+   └───────────────┴───────┬───────┴───────────────┘
+                           │
+                           ▼
+                        Gold_QC             ◄── Gate: warehouse_cleared
+
+```
+
+### 2.1 Key Orchestration Mechanics
+
+* **Job Parameter (`year_month`)**: Accepts a batch month parameter (e.g., `2026-03`)[cite: 6]. If left blank, `Preload_Checks` automatically detects and processes the oldest landed month not yet present in Bronze[cite: 2, 6].
+* **Quality Gate Short-Circuiting**: If any Quality Control task (`Bronze_QC`, `Silver_QC`, `Gold_QC`) raises an exception, all downstream tasks are automatically skipped, preventing invalid data from reaching subsequent layers[cite: 2, 6].
+* **Parallel Great Expectations Job**: A parallel, manually-triggered job named `NYC Mobility - GX` (`resources/jobs/nyc_mobility_gx_job.yml`) executes the same pipeline layout using Great Expectations tasks (`GX`, `GX2`, `GX3`) in place of standard SQL QC tasks[cite: 6]. Automated CI (`deploy.yaml`) deploys and runs `NYC_Mobility` exclusively[cite: 6].
+* **Standalone / Scheduled QC Tasks**: `tests/05_at_rest_integrity_qc.sql` and `tests/09_freshness_check.sql` run on demand or as separate scheduled tasks to monitor warehouse drift and data freshness[cite: 2, 6].
