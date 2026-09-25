@@ -1,60 +1,58 @@
-## 🛡️ Repository Governance & Development Workflows
+##  Data Quality & Runtime Monitoring
 
-Repository standards are enforced through **GitHub Actions workflows** to maintain code quality, consistent project structure, automated reviews, and controlled deployment processes.
+Runtime data quality is governed by **291 checks across five layers**, including **102 blocking checks** that halt pipeline execution when critical quality limits are breached.
 
-### Automated CI/CD Workflows
+### Five-Layer Data Quality Matrix
 
-| Workflow | Trigger | Actions / Capabilities |
-|---|---|---|
-| **Auto Format & Commit** | PR opened, synchronized, or reopened targeting `main` or `develop` | Runs `sqlfluff` (Databricks), `black` (120-character limit), `isort`, `nbqa`, and `nbstripout`. Automatically commits formatting changes and posts a PR summary. |
-| **Auto Assign Reviewer** | PR opened or marked ready for review | Automatically assigns a reviewer based on the PR author's reviewer mapping. |
-| **PR Checks** | PR targeting `main` | Validates the required repository structure (`src/`, `docs/`) and confirms the presence of SQL files. |
+| **Layer** | **Total Checks** | **Blocking Checks** | **Governance Focus** | **Gate Indicator** |
+|---|---:|---:|---|---|
+| **Preload** | 101 | 17 | Evaluates source file layout, cast safety, and domain rules before landing. | `source_cleared_for_bronze` |
+| **Bronze** | 42 | 28 | Confirms source-to-target row fidelity and `no_nulls_added_*` checks. | `batch_cleared_for_silver` |
+| **Silver** | 87 | 34 | Validates classification promises (`dq_status`), quarantines, and formulas. | `batch_cleared_for_gold` |
+| **Gold** | 49 | 21 | Verifies star schema construction, key derivations, and calendar integrity. | `warehouse_cleared` |
+| **At-Rest** | 12 | 2 | Assesses standing referential integrity across fact/dimension foreign keys. | `referential_integrity_holds` |
+| **Total** | **291** | **102** | | |
 
-### Reviewer Assignment Matrix
+###  Status Resolution Ladder
 
-Peer-review assignments are automatically managed through workflow configuration.
+Every check resolves through a strict five-branch condition order:
 
-```text
-jess-christine
-      ↓
-catweyine
-      ↓
-jg0901
-      ↓
-go-viaaa
-      ↓
-JoanMaquinano
-      ↓
-jess-christine
-PR Author	Assigned Reviewer
-jess-christine	catweyine
-catweyine	jg0901
-jg0901	go-viaaa
-go-viaaa	JoanMaquinano
-JoanMaquinano	jess-christine
+```sql
+CASE
+  WHEN total_rows = 0 AND check_name <> 'table_not_empty' THEN 'SKIP'
+  WHEN failed_rows = 0 THEN 'PASS'
+  WHEN failed_pct <= warn_pct THEN 'PASS'
+  WHEN failed_rows <= min_failed_rows THEN 'WARN'
+  WHEN failed_pct <= threshold_pct THEN 'WARN'
+  ELSE 'FAIL'
+END
+```
 
- Code Standards & Environment Control
-Databricks Asset Bundles (DAB): Configuration fixes are maintained under version control to improve deployment stability.
-Branch Protection & Gating: PR branch gating is enabled to control changes before merging, with CODEOWNERS assigned to critical paths.
-Repository Cleanup: Connection references and operational tracking artifacts such as .gitkeep are maintained and cleaned as needed.
-Development Standards: Automated formatting and validation help maintain consistent code and repository structure across contributors.
+- **`SKIP`** — Evaluated when the batch is empty and the check is not `table_not_empty`.
+- **`PASS`** — Assigned when no failures exist or the failure rate remains within `warn_pct`.
+- **`WARN`** — Assigned when failure counts or percentages remain within the defined tolerance thresholds (`min_failed_rows` or `threshold_pct`).
+- **`FAIL`** — Triggered when configured failure limits are breached; blocks execution when the `(table, check)` pair is listed on the layer's blocking list.
 
- Governance Summary
+###  Threshold Configurations
 
-The repository uses automated workflows to establish a consistent development process:
+| **Configuration** | **Threshold** | **Application** |
+|---|---:|---|
+| **`STRICT`** | 0% | Applied to scalar checks, primary keys, and non-null key constraints such as `location_id_unique`, `location_id_not_null`, and `date_not_null`. |
+| **`TOL`** | 10% | Applied to imperfect source-data categories where minor data quality issues are tolerable. |
+| **`CAST_WARN`** | 5% | Warning threshold for string-to-datatype conversions. |
+| **`CAST_FAIL`** | 10% | Failure threshold for string-to-datatype conversions, including the `no_nulls_added_*` family in Bronze. |
+| **`MIN_ROWS`** | 5 rows | Minimum row threshold used to prevent single-row anomalies from unnecessarily stopping large batches. |
 
-Pull Request
-     ↓
-Auto Formatting
-     ↓
-PR Checks
-     ↓
-Reviewer Assignment
-     ↓
-Code Review
-     ↓
-Branch Gating
-     ↓
-Merge
+###  Great Expectations (GX) Infrastructure & Operational State
 
-Goal: Automate repetitive checks and formatting while enforcing consistent review, repository structure, and deployment practices.
+#### Output Location & Catalog Structure
+
+The **Great Expectations (GX)** suite writes to the `nyc-mobility` catalog (hyphenated) under the `nyc_quality` schema. This is distinct from the standard SQL QC implementation, which targets the `nyc_mobility` catalog (underscored).
+
+| **Table / View** | **Rows** | **Description** |
+|---|---:|---|
+| `dq_results` | 16 | Individual check results. |
+| `dq_run_log` | 0 | Run summaries; currently unpopulated while `save_run_log` is pending completion. |
+| `dq_rules` | 0 | Threshold overrides; none currently configured. |
+| `vw_latest_dq_results` | 16 | View of the most recent check results. |
+| `vw_latest_dq_run` | 0 | View of the most recent run log. |
