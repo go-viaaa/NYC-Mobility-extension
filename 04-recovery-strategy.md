@@ -1,8 +1,8 @@
-## 4. Disaster Recovery & Operational Standards
+## Disaster Recovery & Operational Standards
 
 This section defines the operational standards for timezone management, deterministic key generation, safe recovery, `MERGE` operations, and automated data-quality validation.
 
-### 4.1 Timezone Management
+### Timezone Management
 
 All notebooks must explicitly use UTC to ensure consistent timestamp handling across environments.
 
@@ -10,7 +10,7 @@ All notebooks must explicitly use UTC to ensure consistent timestamp handling ac
 SET TIME ZONE 'UTC';
 ```
 
-### 4.2 Deterministic Key Generation
+### Deterministic Key Generation
 
 Primary and surrogate keys must be generated using **timezone-independent logic**.
 
@@ -25,7 +25,7 @@ Different session timezones can produce different values from the same timestamp
 
 > **Standard:** Key-generation logic must produce the same key regardless of the execution environment or session timezone.
 
-### 4.3 Recovery & MERGE Safety
+###  Recovery & MERGE Safety
 
 Changes to schema definitions or key-generation logic require a controlled recovery process.
 
@@ -61,7 +61,7 @@ Potential Duplicate Records
 
 > **Recovery Rule:** Truncate the affected target table before rerunning a `MERGE` whenever the key-generation strategy has changed.
 
-### 4.4 Data Quality Automation
+### Data Quality Automation
 
 Data-quality validation is automated using **Great Expectations (GX)** and supporting validation scripts.
 
@@ -91,7 +91,7 @@ GX provides a standardized validation framework across the **Bronze, Silver, and
 | `WARN` | Issues are within the configured tolerance. | Continue with warning |
 | `FAIL` | Quality thresholds are breached. | Block when configured as a blocking check |
 
-### 4.5 Operational Principles
+###  Operational Principles
 
 The pipeline follows these core operational standards:
 
