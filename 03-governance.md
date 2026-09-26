@@ -48,10 +48,10 @@ Code reviews are automatically routed to area owners via `.github/CODEOWNERS`[ci
 
 | Domain / Folder | Code Path | Designated Owner |
 |---|---|---|
-| **Green Taxi Pipeline** | `src/green_taxi/`[cite: 10] | `@jess-christine` |
-| **Taxi Zones Lookup** | `src/taxi_zones/`[cite: 10] | `@go-viaaa` |
-| **Weather Integration** | `src/weather/`[cite: 10] | `@catweyine` |
-| **Data Quality Framework** | `tests/`[cite: 10] | `@jg0901` |
+| **Green Taxi Pipeline** | `src/green_taxi/` | `@jess-christine` |
+| **Taxi Zones Lookup** | `src/taxi_zones/`| `@go-viaaa` |
+| **Weather Integration** | `src/weather/` | `@catweyine` |
+| **Data Quality Framework** | `tests/` | `@jg0901` |
 | **CI/CD, DABs & Documentation** | `*` (Repository Root) | `@JoanMaquinano|
 
 ---
@@ -83,7 +83,7 @@ Code reviews are automatically routed to area owners via `.github/CODEOWNERS`[ci
 
 Recommended Unity Catalog RBAC Matrix
 
-Access to Unity Catalog objects under `nyc_mobility` is segmented by principal responsibility[cite: 10]:
+Access to Unity Catalog objects under `nyc_mobility` is segmented by principal responsibility:
 
 | Role Principal | Target User / Service | `nyc_bronze` | `nyc_silver` | `nyc_gold` | `nyc_quality` |
 |---|---|---|---|---|---|
@@ -202,7 +202,7 @@ Asset Standards
 - More consistent data quality enforcement.
 - Stronger governance over critical datasets.
 
-Data governance relies on dual-layer validation and cataloged quality metrics[cite: 10].
+Data governance relies on dual-layer validation and cataloged quality metrics.
 
 ```text
 Source Landing ──► Bronze QC Gate ──► Silver QC Gate ──► Gold QC Gate ──► Analytics Warehouse
