@@ -28,7 +28,7 @@ Building on the integration of taxi trips, weather conditions, and taxi zone met
 | Module | Document | Core Focus |
 | --- | --- | --- |
 | **00** | [Delivery: Version, Deploy, Orchestrate](https://www.google.com/search?q=00-delivery.md&utm_source=gemini) | How code changes reach production and the execution order of the pipeline. |
-| **01** | [Architecture](https://www.google.com/search?q=01-architecture.md&utm_source=gemini)[cite: 5] | Source systems, medallion layers, table schemas, and quality gate triggers. |
+| **01** | [Architecture](https://www.google.com/search?q=01-architecture.md&utm_source=gemini)| Source systems, medallion layers, table schemas, and quality gate triggers. |
 | **02** | [Monitoring](https://www.google.com/search?q=02-monitoring.md&utm_source=gemini) | Pipeline observability, check status resolution, and execution logging. |
 | **03** | [Governance](https://www.google.com/search?q=03-governance.md&utm_source=gemini) | Naming conventions, ownership mappings, catalog permissions, and data lineage. |
 | **04** | [Failure & Recovery Strategy](https://www.google.com/search?q=04-recovery-strategy.md&utm_source=gemini) | Handling task exceptions, table isolation, and safe, idempotent reruns. |
